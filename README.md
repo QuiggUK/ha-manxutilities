@@ -24,8 +24,8 @@ The Resource IDs are unique to your account. You need two of them:
 - One for energy usage (shows how many kWh you're using)
 
 When you login to your Manx Utilities account, check the network tab in your browser's developer tools (F12) and look for calls to the API. You'll see URLs containing resource IDs that look something like this:
-- Cost: `f9c35f4d-eeac-4632-ba48-70800f45c57f`
-- Energy: `4f1c7733-3c63-4c8d-892b-89d03556960d`
+- Cost: `a1b2c3d4-5e6f-7g8h-9i10-j11k12l13m14`
+- Energy: `n15o16p17-q18r-s19t-u20v-w21x22y23z24`
 
 Make a note of both - you'll need these for setup!
 
