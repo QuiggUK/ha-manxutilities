@@ -59,24 +59,36 @@ class ManxUtilitiesAPI:
         _LOGGER.debug("Using get_latest_reading() to fetch cost data")
         return await self.get_reading("cost")
 
+    def _get_time_range(self) -> Tuple[str, str]:
+        """Get the appropriate time range for the current 30-minute period."""
+        # Account for the 1-hour delay by looking back an hour
+        now = datetime.utcnow() - timedelta(hours=1)
+        
+        # Determine which 30-minute period we're in
+        if now.minute >= 30:
+            # For the second half of the hour (30-59 minutes)
+            from_time = now.replace(minute=30, second=0, microsecond=0)
+            to_time = from_time + timedelta(minutes=29)
+        else:
+            # For the first half of the hour (0-29 minutes)
+            from_time = now.replace(minute=0, second=0, microsecond=0)
+            to_time = from_time + timedelta(minutes=29)
+        
+        # Format times as strings
+        from_str = from_time.strftime("%Y-%m-%dT%H:%M:%S")
+        to_str = to_time.strftime("%Y-%m-%dT%H:%M:%S")
+        
+        return from_str, to_str
+
     async def get_reading(self, reading_type: Literal["cost", "energy"]) -> Optional[Tuple[int, float]]:
         """Get the latest reading from the API for specified type."""
         if self._token is None:
             _LOGGER.debug("No token found, authenticating first")
             await self.authenticate()
 
-        # Get the current time and round down to the last hour
-        now = datetime.utcnow()
-        end_time = now.replace(minute=0, second=0, microsecond=0)
+        # Get the appropriate time range
+        from_time, to_time = self._get_time_range()
         
-        # If we're at the start of an hour, get the previous hour
-        if now.minute == 0 and now.second < 30:
-            end_time = end_time - timedelta(hours=1)
-        
-        # For both cost and energy, we want the exact hour period
-        from_time = end_time.strftime("%Y-%m-%dT%H:00:00")
-        to_time = end_time.strftime("%Y-%m-%dT%H:59:59")
-
         resource_id = self._cost_resource_id if reading_type == "cost" else self._energy_resource_id
         
         readings_url = f"{API_ENDPOINT}/resource/{resource_id}/readings"
@@ -89,13 +101,13 @@ class ManxUtilitiesAPI:
         params = {
             "from": from_time,
             "to": to_time,
-            "period": "PT1H",  # Use PT1H for both cost and energy
+            "period": "PT30M",
             "offset": -60,
             "function": "sum"
         }
 
         _LOGGER.debug(
-            "Requesting %s readings for hour from %s to %s using resource_id: %s", 
+            "Requesting %s readings for period from %s to %s using resource_id: %s", 
             reading_type,
             from_time,
             to_time,

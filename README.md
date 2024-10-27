@@ -5,10 +5,18 @@ Hey! 👋 I've created a custom component for Home Assistant that lets you track
 ## What does it do?
 
 This integration grabs data from your Manx Utilities account and creates two sensors in Home Assistant:
-- **Electricity Cost**: Shows you how much you're spending (in £) each hour
-- **Electricity Usage**: Shows your power consumption (in kWh) each hour
+- **Electricity Cost**: Shows you how much you're spending (in £) every 30 minutes
+- **Electricity Usage**: Shows your power consumption (in kWh) every 30 minutes
 
-The sensors update hourly, giving you a nice view of your usage patterns throughout the day.
+The sensors update every 30 minutes, giving you a detailed view of your usage patterns throughout the day.
+
+## Important Notes About Data Timing
+
+⚠️ **Please Note**: There is approximately a 1-hour delay between actual usage and when the data becomes available in the Manx Utilities API. This means:
+- The readings you see are typically from about an hour ago
+- This is normal behavior and is handled by the integration
+- The integration automatically accounts for this delay when fetching data
+- All timestamps in Home Assistant will reflect the actual time of usage, not when the data was received
 
 ## Before you start
 
@@ -79,6 +87,7 @@ If things aren't working:
        custom_components.manx_utilities: debug
    ```
 3. Check the logs in Developer Tools → Logs
+4. Remember there's a ~1 hour delay in data availability - this is normal!
 
 ## Questions or Issues?
 

@@ -1,6 +1,7 @@
 """Platform for sensor integration."""
 from datetime import datetime, timedelta
 import logging
+from collections import deque
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -29,7 +30,8 @@ from .api import ManxUtilitiesAPI
 
 _LOGGER = logging.getLogger(__name__)
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=DEFAULT_SCAN_INTERVAL)
+# Update the scan interval to 30 minutes
+MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -61,10 +63,32 @@ class ManxUtilitiesBaseSensor(SensorEntity):
         self._api = api
         self._attr_available = True
         self._last_timestamp = None
+        # Initialize deque to store last 48 readings (24 hours of 30-min readings)
+        self._historical_values = deque(maxlen=48)
         self._attr_extra_state_attributes = {
             ATTR_LAST_READING_TIME: None,
-            ATTR_PERIOD: "hourly"
+            ATTR_PERIOD: "30 minutes",
+            "total_24h": 0.0
         }
+
+    def _update_historical_values(self, value: float, timestamp: int) -> None:
+        """Update historical values and calculate 24h total."""
+        current_time = datetime.fromtimestamp(timestamp)
+        
+        # Remove values older than 24 hours
+        cutoff_time = current_time - timedelta(hours=24)
+        self._historical_values = deque(
+            [(ts, val) for ts, val in self._historical_values 
+             if datetime.fromtimestamp(ts) > cutoff_time],
+            maxlen=48
+        )
+        
+        # Add new value
+        self._historical_values.append((timestamp, value))
+        
+        # Calculate 24h total
+        total = sum(val for _, val in self._historical_values)
+        self._attr_extra_state_attributes["total_24h"] = round(total, 3)
 
 class ManxUtilitiesCostSensor(ManxUtilitiesBaseSensor):
     """Representation of a Manx Utilities cost sensor."""
@@ -89,7 +113,9 @@ class ManxUtilitiesCostSensor(ManxUtilitiesBaseSensor):
             reading_data = await self._api.get_reading("cost")
             if reading_data and len(reading_data) >= 2:
                 timestamp, cost_pence = reading_data
-                self._attr_native_value = round(float(cost_pence) / 100, 2)
+                cost_pounds = round(float(cost_pence) / 100, 2)
+                self._attr_native_value = cost_pounds
+                self._update_historical_values(cost_pounds, timestamp)
                 reading_time = datetime.fromtimestamp(timestamp)
                 self._attr_extra_state_attributes[ATTR_LAST_READING_TIME] = reading_time.isoformat()
                 self._attr_available = True
@@ -121,7 +147,9 @@ class ManxUtilitiesEnergySensor(ManxUtilitiesBaseSensor):
             reading_data = await self._api.get_reading("energy")
             if reading_data and len(reading_data) >= 2:
                 timestamp, energy_kwh = reading_data
-                self._attr_native_value = round(float(energy_kwh), 3)
+                energy_value = round(float(energy_kwh), 3)
+                self._attr_native_value = energy_value
+                self._update_historical_values(energy_value, timestamp)
                 reading_time = datetime.fromtimestamp(timestamp)
                 self._attr_extra_state_attributes[ATTR_LAST_READING_TIME] = reading_time.isoformat()
                 self._attr_available = True
