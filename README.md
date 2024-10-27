@@ -5,18 +5,10 @@ Hey! 👋 I've created a custom component for Home Assistant that lets you track
 ## What does it do?
 
 This integration grabs data from your Manx Utilities account and creates two sensors in Home Assistant:
-- **Electricity Cost**: Shows you how much you're spending (in £) every 30 minutes
-- **Electricity Usage**: Shows your power consumption (in kWh) every 30 minutes
+- **Electricity Cost**: Shows you how much you're spending (in £) each hour
+- **Electricity Usage**: Shows your power consumption (in kWh) each hour
 
-The sensors update every 30 minutes, giving you a detailed view of your usage patterns throughout the day.
-
-## Important Notes About Data Timing
-
-⚠️ **Please Note**: There is approximately a 1-hour delay between actual usage and when the data becomes available in the Manx Utilities API. This means:
-- The readings you see are typically from about an hour ago
-- This is normal behavior and is handled by the integration
-- The integration automatically accounts for this delay when fetching data
-- All timestamps in Home Assistant will reflect the actual time of usage, not when the data was received
+The sensors update every 30 minutes, with readings typically available about an hour after consumption due to Manx Utilities' data ingestion process.
 
 ## Before you start
 
@@ -68,11 +60,25 @@ The sensors will show up as:
 - `sensor.electricity_cost` (in £)
 - `sensor.electricity_usage` (in kWh)
 
-These are perfect for:
+Each sensor includes the following attributes:
+- Last reading time
+- Period (30 minutes)
+- Daily total (full calendar day, e.g., Monday's total usage)
+- Weekly total (Monday to Sunday)
+- Monthly total (full calendar month, e.g., October)
+
+Important timing notes:
+- Data is delayed by approximately one hour due to Manx Utilities' data ingestion process
+- The delay means your readings reflect consumption from about an hour ago
+- Daily totals are for complete calendar days
+- Weekly totals run from Monday to Sunday
+- Monthly totals are for complete calendar months
+
+These sensors are perfect for:
 - Adding to your energy dashboard
 - Setting up automations based on high usage
 - Creating nice graphs of your usage patterns
-- Tracking your monthly spending
+- Tracking your daily, weekly, and monthly consumption and spending
 
 ## Troubleshooting
 
@@ -87,7 +93,11 @@ If things aren't working:
        custom_components.manx_utilities: debug
    ```
 3. Check the logs in Developer Tools → Logs
-4. Remember there's a ~1 hour delay in data availability - this is normal!
+4. Remember that readings have a one-hour delay - this is normal and due to Manx Utilities' data processing time
+5. When checking totals, remember they follow calendar periods:
+   - Daily totals are for complete days (midnight to midnight)
+   - Weekly totals are Monday to Sunday
+   - Monthly totals are for complete calendar months
 
 ## Questions or Issues?
 

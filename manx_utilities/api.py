@@ -61,7 +61,7 @@ class ManxUtilitiesAPI:
 
     def _get_time_range(self) -> Tuple[str, str]:
         """Get the appropriate time range for the current 30-minute period."""
-        # Account for the 1-hour delay by looking back an hour
+        # Look back one hour to account for data delay
         now = datetime.utcnow() - timedelta(hours=1)
         
         # Determine which 30-minute period we're in
@@ -78,6 +78,7 @@ class ManxUtilitiesAPI:
         from_str = from_time.strftime("%Y-%m-%dT%H:%M:%S")
         to_str = to_time.strftime("%Y-%m-%dT%H:%M:%S")
         
+        _LOGGER.debug("Calculated time range - From: %s, To: %s", from_str, to_str)
         return from_str, to_str
 
     async def get_reading(self, reading_type: Literal["cost", "energy"]) -> Optional[Tuple[int, float]]:
@@ -101,9 +102,9 @@ class ManxUtilitiesAPI:
         params = {
             "from": from_time,
             "to": to_time,
-            "period": "PT30M",
-            "offset": -60,
+            "period": "PT30M",  # 30-minute intervals
             "function": "sum"
+            # Removed offset parameter
         }
 
         _LOGGER.debug(

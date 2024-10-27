@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import logging
 from collections import deque
+import calendar
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -30,7 +31,6 @@ from .api import ManxUtilitiesAPI
 
 _LOGGER = logging.getLogger(__name__)
 
-# Update the scan interval to 30 minutes
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
 
 async def async_setup_entry(
@@ -63,32 +63,70 @@ class ManxUtilitiesBaseSensor(SensorEntity):
         self._api = api
         self._attr_available = True
         self._last_timestamp = None
-        # Initialize deque to store last 48 readings (24 hours of 30-min readings)
-        self._historical_values = deque(maxlen=48)
+        self._historical_values = deque(maxlen=2880)  # Store 30 days of 30-minute readings
         self._attr_extra_state_attributes = {
             ATTR_LAST_READING_TIME: None,
             ATTR_PERIOD: "30 minutes",
-            "total_24h": 0.0
+            "total_today": 0.0,
+            "total_7d": 0.0,
+            "total_month": 0.0,
+            "today_date": "",
+            "current_week": "",
+            "current_month": "",
         }
 
     def _update_historical_values(self, value: float, timestamp: int) -> None:
-        """Update historical values and calculate 24h total."""
+        """Update historical values and calculate totals for different periods."""
         current_time = datetime.fromtimestamp(timestamp)
-        
-        # Remove values older than 24 hours
-        cutoff_time = current_time - timedelta(hours=24)
-        self._historical_values = deque(
-            [(ts, val) for ts, val in self._historical_values 
-             if datetime.fromtimestamp(ts) > cutoff_time],
-            maxlen=48
-        )
         
         # Add new value
         self._historical_values.append((timestamp, value))
         
-        # Calculate 24h total
-        total = sum(val for _, val in self._historical_values)
-        self._attr_extra_state_attributes["total_24h"] = round(total, 3)
+        # Calculate different period totals
+        self._calculate_today_total(current_time)
+        self._calculate_week_total(current_time)
+        self._calculate_month_total(current_time)
+
+    def _calculate_today_total(self, current_time: datetime) -> None:
+        """Calculate total for today (midnight to midnight)."""
+        today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        total = sum(
+            value for ts, value in self._historical_values
+            if datetime.fromtimestamp(ts) >= today_start
+        )
+        
+        self._attr_extra_state_attributes["total_today"] = round(total, 3)
+        self._attr_extra_state_attributes["today_date"] = today_start.strftime("%d %B %Y")
+
+    def _calculate_week_total(self, current_time: datetime) -> None:
+        """Calculate total for current week (Monday-Sunday)."""
+        # Get the start of the current week (Monday)
+        week_start = current_time - timedelta(days=current_time.weekday())
+        week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_end = week_start + timedelta(days=6)
+        
+        total = sum(
+            value for ts, value in self._historical_values
+            if datetime.fromtimestamp(ts) >= week_start
+        )
+        
+        self._attr_extra_state_attributes["total_7d"] = round(total, 3)
+        # Format: "22 Jan - 28 Jan 2024"
+        self._attr_extra_state_attributes["current_week"] = f"{week_start.strftime('%d %b')} - {week_end.strftime('%d %b %Y')}"
+
+    def _calculate_month_total(self, current_time: datetime) -> None:
+        """Calculate total for current month."""
+        # Get the start of the current month
+        month_start = current_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        total = sum(
+            value for ts, value in self._historical_values
+            if datetime.fromtimestamp(ts) >= month_start
+        )
+        
+        self._attr_extra_state_attributes["total_month"] = round(total, 3)
+        self._attr_extra_state_attributes["current_month"] = current_time.strftime("%B %Y")
 
 class ManxUtilitiesCostSensor(ManxUtilitiesBaseSensor):
     """Representation of a Manx Utilities cost sensor."""
