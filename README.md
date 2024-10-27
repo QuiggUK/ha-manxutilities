@@ -86,6 +86,6 @@ Found a bug? Got a feature request? Open an issue on GitHub and I'll take a look
 
 ## Credits
 
-This integration was created by @yourusername with inspiration from many other awesome Home Assistant custom components out there. Big thanks to the Home Assistant community for all the help and guidance!
+This integration was created by Quigg with inspiration from many other awesome Home Assistant custom components out there. Big thanks to the Home Assistant community for all the help and guidance!
 
 Hope you find this useful! 🚀
