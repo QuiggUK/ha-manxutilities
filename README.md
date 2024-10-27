@@ -54,6 +54,21 @@ Make a note of both - you'll need these for setup!
 
 And that's it! You should now see two new sensors in your Home Assistant.
 
+## Dashboard
+
+I've included a sample dashboard configuration in the `/dashboard/manxutilitiesdash.yaml` file. This creates a nice dashboard with:
+- A Mushroom card showing today's electricity cost
+- A popup detail view with:
+  - Daily totals and date
+  - Weekly totals (Monday to Sunday)
+  - Monthly totals (calendar month)
+  - Usage and cost graphs
+
+To use this dashboard, you'll need:
+- The Mushroom Cards custom cards
+- The Mini-Graph-Card custom card
+- Browser Mod
+
 ## Using the Integration
 
 The sensors will show up as:
