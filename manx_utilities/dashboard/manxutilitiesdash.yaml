@@ -1,0 +1,126 @@
+type: custom:mushroom-entity-card
+entity: sensor.electricity_cost
+name: Today's Electricity Usage
+icon: mdi:flash
+primary_info: name
+secondary_info: "{{ state_attr('sensor.electricity_cost', 'total_today') | round(2) }} GBP"
+icon_color: green
+tap_action:
+  action: fire-dom-event
+  browser_mod:
+    service: browser_mod.popup
+    data:
+      title: Electricity Usage Details
+      size: normal
+      right_button: close-button
+      width: 400px
+      height: auto
+      style: |
+        --popup-min-width: 400px;
+        --popup-max-width: 400px;
+        --popup-min-height: auto;
+        --popup-max-height: 90vh;
+        overflow-y: auto;
+      content:
+        type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## Today {{ state_attr('sensor.electricity_usage', 'today_date') }}
+            style: |
+              ha-card {
+                --ha-card-background: none;
+                box-shadow: none;
+                padding: 0;
+                margin-bottom: -16px;
+              }
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.electricity_usage
+                name: Usage
+                icon: mdi:lightning-bolt
+                attribute: total_today
+                unit: kWh
+              - type: entity
+                entity: sensor.electricity_cost
+                name: Cost
+                icon: mdi:currency-gbp
+                attribute: total_today
+                unit: GBP
+          - type: markdown
+            content: >
+              ## Current Week {{ state_attr('sensor.electricity_usage', 'current_week') }}
+            style: |
+              ha-card {
+                --ha-card-background: none;
+                box-shadow: none;
+                padding: 0;
+                margin-bottom: -16px;
+              }
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.electricity_usage
+                name: Usage
+                icon: mdi:lightning-bolt
+                attribute: total_7d
+                unit: kWh
+              - type: entity
+                entity: sensor.electricity_cost
+                name: Cost
+                icon: mdi:currency-gbp
+                attribute: total_7d
+                unit: GBP
+          - type: markdown
+            content: >
+              ## Current Month {{ state_attr('sensor.electricity_usage', 'current_month') }}
+            style: |
+              ha-card {
+                --ha-card-background: none;
+                box-shadow: none;
+                padding: 0;
+                margin-bottom: -16px;
+              }
+          - type: horizontal-stack
+            cards:
+              - type: entity
+                entity: sensor.electricity_usage
+                name: Usage
+                icon: mdi:lightning-bolt
+                attribute: total_month
+                unit: kWh
+              - type: entity
+                entity: sensor.electricity_cost
+                name: Cost
+                icon: mdi:currency-gbp
+                attribute: total_month
+                unit: GBP
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.electricity_usage
+                name: Power Usage
+            name: Power Usage History
+            hours_to_show: 24
+            points_per_hour: 4
+            line_color: "#2196F3"
+            show:
+              fill: true
+              points: true
+              labels: true
+            height: 150
+            lower_bound: 0
+          - type: custom:mini-graph-card
+            entities:
+              - entity: sensor.electricity_cost
+                name: Cost
+            name: Cost History
+            hours_to_show: 24
+            points_per_hour: 4
+            line_color: "#4CAF50"
+            show:
+              fill: true
+              points: true
+              labels: true
+            height: 150
+            lower_bound: 0
