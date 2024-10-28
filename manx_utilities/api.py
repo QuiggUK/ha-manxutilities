@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, Literal
 import aiohttp
+from collections import deque
 
 from .const import API_ENDPOINT, APPLICATION_ID
 
@@ -19,6 +20,12 @@ class ManxUtilitiesAPI:
         self._energy_resource_id = energy_resource_id
         self._token = None
         self._session = None
+        self._last_valid_reading = None
+        # Store readings with timestamps for historical tracking
+        self._historical_values = {
+            "cost": deque(maxlen=2880),  # 30 days of 30-minute readings
+            "energy": deque(maxlen=2880)  # 30 days of 30-minute readings
+        }
 
     async def authenticate(self) -> None:
         """Authenticate with the API."""
@@ -61,7 +68,7 @@ class ManxUtilitiesAPI:
 
     def _get_time_range(self) -> Tuple[str, str]:
         """Get the appropriate time range for the current 30-minute period."""
-        # Look back one hour to account for data delay
+        # Account for the 1-hour delay by looking back an hour
         now = datetime.utcnow() - timedelta(hours=1)
         
         # Determine which 30-minute period we're in
@@ -78,8 +85,54 @@ class ManxUtilitiesAPI:
         from_str = from_time.strftime("%Y-%m-%dT%H:%M:%S")
         to_str = to_time.strftime("%Y-%m-%dT%H:%M:%S")
         
-        _LOGGER.debug("Calculated time range - From: %s, To: %s", from_str, to_str)
         return from_str, to_str
+
+    def get_historical_totals(self, reading_type: Literal["cost", "energy"]) -> dict:
+        """Get historical totals for different time periods."""
+        current_time = datetime.now()
+        totals = {
+            "total_today": 0.0,
+            "total_7d": 0.0,
+            "total_month": 0.0,
+            "today_date": current_time.strftime("%d %B %Y"),
+            "current_week": "",
+            "current_month": current_time.strftime("%B %Y")
+        }
+
+        if not self._historical_values[reading_type]:
+            return totals
+
+        # Calculate today's total (midnight to now)
+        today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Calculate week start (Monday)
+        week_start = current_time - timedelta(days=current_time.weekday())
+        week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_end = week_start + timedelta(days=6)
+        totals["current_week"] = f"{week_start.strftime('%d %b')} - {week_end.strftime('%d %b %Y')}"
+
+        # Calculate month start
+        month_start = current_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # Calculate totals
+        for timestamp, value in self._historical_values[reading_type]:
+            reading_time = datetime.fromtimestamp(timestamp)
+            
+            if reading_time >= today_start:
+                totals["total_today"] += value
+            
+            if reading_time >= week_start:
+                totals["total_7d"] += value
+                
+            if reading_time >= month_start:
+                totals["total_month"] += value
+
+        # Round totals
+        totals["total_today"] = round(totals["total_today"], 3)
+        totals["total_7d"] = round(totals["total_7d"], 3)
+        totals["total_month"] = round(totals["total_month"], 3)
+
+        return totals
 
     async def get_reading(self, reading_type: Literal["cost", "energy"]) -> Optional[Tuple[int, float]]:
         """Get the latest reading from the API for specified type."""
@@ -102,9 +155,8 @@ class ManxUtilitiesAPI:
         params = {
             "from": from_time,
             "to": to_time,
-            "period": "PT30M",  # 30-minute intervals
+            "period": "PT30M",
             "function": "sum"
-            # Removed offset parameter
         }
 
         _LOGGER.debug(
@@ -149,13 +201,15 @@ class ManxUtilitiesAPI:
                 if data.get("data") and len(data["data"]) > 0:
                     # Take just the timestamp and value, ignore any additional values
                     timestamp, value = data["data"][0][:2]
-                    _LOGGER.debug("%s reading - Time: %s, Value: %s", 
-                                reading_type.capitalize(),
-                                datetime.fromtimestamp(timestamp), 
-                                value)
-                    return timestamp, value
+                    if value > 0:  # Only store valid readings
+                        self._historical_values[reading_type].append((timestamp, float(value)))
+                        _LOGGER.debug("%s reading - Time: %s, Value: %s", 
+                                    reading_type.capitalize(),
+                                    datetime.fromtimestamp(timestamp), 
+                                    value)
+                        return timestamp, float(value)
                 
-                _LOGGER.warning("No readings found in response")
+                _LOGGER.warning("No valid readings found in response")
                 return None
 
         except aiohttp.ClientError as err:
